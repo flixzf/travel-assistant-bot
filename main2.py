@@ -399,19 +399,43 @@ class TrainReservation:
             logger.error(f"SRT_PWD: {'✓' if srt_pass else '✗'}")
             sys.exit(1)
 
-        # Korail 로그인 처리
+        # Korail 로그인 처리 (재시도 로직 포함)
         logger.info("Korail 로그인 시도 중...")
-        try:
-            self.korail = Korail()  # letskorail.Korail 사용
-            login_result = self.korail.login(korail_user.strip(), korail_pass.strip())
-            if login_result:
-                logger.info("✓ Korail 로그인 성공")
-            else:
-                logger.error("✗ Korail 로그인 실패")
-                sys.exit(1)
-        except Exception as e:
-            logger.error(f"✗ Korail 로그인 중 예외 발생: {str(e)}")
-            sys.exit(1)
+        max_retries = 3
+        retry_delay = 5  # seconds
+
+        for attempt in range(max_retries):
+            try:
+                self.korail = Korail()  # letskorail.Korail 사용
+
+                # requests 세션에 timeout 설정 (monkey patch)
+                import requests
+                original_request = self.korail._sess.request
+                def request_with_timeout(*args, **kwargs):
+                    kwargs.setdefault('timeout', (10, 30))  # connect timeout: 10s, read timeout: 30s
+                    return original_request(*args, **kwargs)
+                self.korail._sess.request = request_with_timeout
+
+                login_result = self.korail.login(korail_user.strip(), korail_pass.strip())
+                if login_result:
+                    logger.info("✓ Korail 로그인 성공")
+                    break
+                else:
+                    logger.error(f"✗ Korail 로그인 실패 (시도 {attempt + 1}/{max_retries})")
+                    if attempt < max_retries - 1:
+                        logger.info(f"{retry_delay}초 후 재시도...")
+                        import time
+                        time.sleep(retry_delay)
+                    else:
+                        sys.exit(1)
+            except Exception as e:
+                logger.error(f"✗ Korail 로그인 중 예외 발생 (시도 {attempt + 1}/{max_retries}): {str(e)}")
+                if attempt < max_retries - 1:
+                    logger.info(f"{retry_delay}초 후 재시도...")
+                    import time
+                    time.sleep(retry_delay)
+                else:
+                    sys.exit(1)
 
         # SRT 로그인 처리
         logger.info("SRT 로그인 시도 중...")
