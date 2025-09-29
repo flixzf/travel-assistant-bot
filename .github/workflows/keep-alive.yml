@@ -1,0 +1,17 @@
+name: Keep Alive
+
+on:
+  schedule:
+    # 5분마다 실행 (최소 간격)
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # 수동 실행 가능
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Keep server awake
+        run: |
+          # Render 앱 URL로 ping 전송
+          curl -f https://travel-assistant-bot.onrender.com || echo "Ping failed"
+        continue-on-error: true
