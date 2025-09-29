@@ -1,0 +1,21 @@
+# Core dependencies
+python-telegram-bot==20.7
+python-dotenv==1.0.0
+asyncio==3.4.3
+
+# Web scraping
+selenium==4.15.2
+webdriver-manager==4.0.1
+requests==2.31.0
+
+# Train booking libraries
+SRTrain==2.6.1
+korail2
+
+# HTTP clients
+httpx==0.25.2
+aiohttp==3.9.1
+
+# Security
+cryptography==41.0.8
+

@@ -1,0 +1,56 @@
+# 환경 변수 파일
+.env
+*.env
+
+# 보안 파일 (암호화된 크리덴셜)
+credentials.enc
+*.enc
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 로그 파일
+*.log
+*.log.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 기타
+chromedriver*
+geckodriver*
+*.json
+reservation_status.json
+
+# 임시 파일
+temp/
+tmp/
+
+# Selenium
+selenium-debug.log

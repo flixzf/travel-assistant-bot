@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: autoreserve-bot
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon  # 또는 singapore (한국과 가까운 지역)
+    buildCommand: ""
+    startCommand: "python main2.py"
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: KORAIL_USER
+        sync: false
+      - key: KORAIL_PASS
+        sync: false
+      - key: KORAIL_PASS_BANK
+        sync: false
+      - key: Card_Num1_korail
+        sync: false
+      - key: Card_Num2_korail
+        sync: false
+      - key: Card_Num3_korail
+        sync: false
+      - key: Card_Num4_korail
+        sync: false
+      - key: Card_Num5_korail
+        sync: false
+      - key: CARD_MONTH
+        sync: false
+      - key: Id_Num1_korail
+        sync: false
+      - key: SRT_ID
+        sync: false
+      - key: SRT_PWD
+        sync: false
+    autoDeploy: true
