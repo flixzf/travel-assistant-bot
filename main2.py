@@ -399,10 +399,36 @@ class TrainReservation:
             logger.error(f"SRT_PWD: {'✓' if srt_pass else '✗'}")
             sys.exit(1)
 
+        # 네트워크 연결성 테스트
+        def test_network_connectivity():
+            """네트워크 연결성 테스트"""
+            import requests
+            test_urls = [
+                ("Korail API", "https://smart.letskorail.com"),
+                ("SRT API", "https://app.srail.or.kr"),
+                ("Google DNS", "https://dns.google")  # 기본 연결성 테스트
+            ]
+
+            for name, url in test_urls:
+                try:
+                    response = requests.head(url, timeout=(5, 10))
+                    logger.info(f"✓ {name} 연결 가능 (상태코드: {response.status_code})")
+                except requests.exceptions.ConnectTimeout:
+                    logger.warning(f"✗ {name} 연결 타임아웃")
+                except requests.exceptions.ConnectionError as e:
+                    logger.warning(f"✗ {name} 연결 오류: {str(e)}")
+                except Exception as e:
+                    logger.warning(f"✗ {name} 테스트 오류: {str(e)}")
+
+        logger.info("=== 네트워크 연결성 테스트 시작 ===")
+        test_network_connectivity()
+        logger.info("=== 네트워크 연결성 테스트 완료 ===")
+
         # Korail 로그인 처리 (재시도 로직 포함)
         logger.info("Korail 로그인 시도 중...")
         max_retries = 3
         retry_delay = 5  # seconds
+        korail_login_success = False
 
         for attempt in range(max_retries):
             try:
@@ -419,6 +445,7 @@ class TrainReservation:
                 login_result = self.korail.login(korail_user.strip(), korail_pass.strip())
                 if login_result:
                     logger.info("✓ Korail 로그인 성공")
+                    korail_login_success = True
                     break
                 else:
                     logger.error(f"✗ Korail 로그인 실패 (시도 {attempt + 1}/{max_retries})")
@@ -426,26 +453,59 @@ class TrainReservation:
                         logger.info(f"{retry_delay}초 후 재시도...")
                         import time
                         time.sleep(retry_delay)
-                    else:
-                        sys.exit(1)
             except Exception as e:
                 logger.error(f"✗ Korail 로그인 중 예외 발생 (시도 {attempt + 1}/{max_retries}): {str(e)}")
                 if attempt < max_retries - 1:
                     logger.info(f"{retry_delay}초 후 재시도...")
                     import time
                     time.sleep(retry_delay)
-                else:
-                    sys.exit(1)
 
-        # SRT 로그인 처리
+        if not korail_login_success:
+            logger.error("❌ Korail 로그인 필수 - 로그인 실패")
+            self.korail = None
+
+        # SRT 로그인 처리 (재시도 로직 포함)
         logger.info("SRT 로그인 시도 중...")
-        try:
-            self.srt = SRT(srt_user.strip(), srt_pass.strip())
-            self.srt.login()
-            logger.info("✓ SRT 로그인 성공")
-        except Exception as e:
-            logger.error(f"✗ SRT 로그인 실패: {str(e)}")
+        srt_login_success = False
+
+        for attempt in range(max_retries):
+            try:
+                self.srt = SRT(srt_user.strip(), srt_pass.strip())
+
+                # SRT 세션에도 timeout 설정 (monkey patch)
+                import requests
+                if hasattr(self.srt, 'session'):
+                    original_srt_request = self.srt.session.request
+                    def srt_request_with_timeout(*args, **kwargs):
+                        kwargs.setdefault('timeout', (10, 30))
+                        return original_srt_request(*args, **kwargs)
+                    self.srt.session.request = srt_request_with_timeout
+
+                self.srt.login()
+                logger.info("✓ SRT 로그인 성공")
+                srt_login_success = True
+                break
+            except Exception as e:
+                logger.error(f"✗ SRT 로그인 중 예외 발생 (시도 {attempt + 1}/{max_retries}): {str(e)}")
+                if attempt < max_retries - 1:
+                    logger.info(f"{retry_delay}초 후 재시도...")
+                    import time
+                    time.sleep(retry_delay)
+
+        if not srt_login_success:
+            logger.error("❌ SRT 로그인 필수 - 로그인 실패")
+            self.srt = None
+
+        # 둘 다 반드시 성공해야 함
+        if not korail_login_success or not srt_login_success:
+            logger.error("❌ Korail과 SRT 둘 다 로그인 성공해야 합니다. 프로그램을 종료합니다.")
+            if not korail_login_success:
+                logger.error("   - Korail 로그인 실패")
+            if not srt_login_success:
+                logger.error("   - SRT 로그인 실패")
             sys.exit(1)
+
+        logger.info("✅ Korail, SRT 모든 서비스 로그인 성공")
 
         self.RATE_LIMIT_DELAY = 1.0
         self.ATTEMPTS_PER_CYCLE = 10
@@ -468,6 +528,7 @@ class TrainReservation:
             srt_status = self.srt is not None
 
             logger.info(f"로그인 상태 확인 - Korail: {'✓' if korail_status else '✗'}, SRT: {'✓' if srt_status else '✗'}")
+            # 둘 다 로그인되어 있어야 함
             return korail_status and srt_status
         except Exception as e:
             logger.error(f"로그인 상태 확인 중 오류: {str(e)}")
